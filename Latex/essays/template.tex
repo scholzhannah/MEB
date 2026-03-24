@@ -18,9 +18,9 @@ Mathematical formalisation is an area of mathematics that has seen exponential g
 
 Essentially, this works because a proof that A implies B can be seen as a function that sends a proof of A to a proof of B. So when you write a proof of ``A implies B'' in a programming language, you are specifying such a function. Checking the validity of the proof then corresponds to checking that this function indeed sends proofs of A to proofs of B. This correspondence between proofs and programs is called the Curry-Howard isomorphism.
 
-With the advent of powerful AI tools, formalisation has come to be seen as a magic tool that can lend absolute credibility to anyone using it. Every day we see new claims of solutions to previously unsolved problems supposedly backed by formalisation. Therefore, it is critical that we understand what formalisation can actually be helpful with and where it's limits lie. 
+With the advent of powerful AI tools, formalisation has come to be seen as a magic tool that can lend absolute credibility to anyone using it. Every day we see new claims of solutions to previously unsolved problems supposedly backed by formalisation. Therefore, it is critical that we understand what formalisation can actually be helpful for and where its limits lie. 
 
-This is the focus of the following essay. I will explore this topic with my formalisation of CW complexes in the language Lean as an example. This text assumes no prior knowledge of formalisation or CW complexes. However, I will not explain basic terms from topology but the text should still be understandable without knowing them. This essay is heavily inspired by the essay ``Why formalize mathematics?'' written by Patrick Massot \cite{Massot2021WhyFM}. So if this topic interests you, please check out that essay as well!
+This is the focus of the following essay. I will explore this topic using, as an example, my formalisation of CW complexes in the language Lean that I did together with and supervised by Prof.\ Floris van Doorn. This text assumes no prior knowledge of formalisation or CW complexes. I will not explain basic terms from topology but the text should still be understandable without knowing them. This essay is heavily inspired by the essay ``Why formalize mathematics?'' written by Patrick Massot \cite{Massot2021WhyFM}. So if this topic interests you, please check out that essay as well!
 
 \subsection*{What is a CW complexes?}
 
@@ -66,14 +66,14 @@ By gluing these cells together you can build a lot of the spaces that you alread
     \label{hannah:scholz:fig:2}
 \end{figure}
 
-Now we should move from this intuition to the concrete definition. I know, it looks very long and scary but don't worry: I will offer an intuitive explanation below and you don't need to understand all of the details. 
+Now, we should move from this intuition to the concrete definition. I know that it looks very long and scary but don't worry: I will offer an intuitive explanation below and you don't need to understand all of the details. 
 
-\begin{definition}
+\begin{definition}\label{hannah:scholz:7}
 Let $X$ be a Hausdorff space. 
 An \emph{(absolute) CW complex} on $X$ consists of a family of indexing sets $(I_n)_{n \in \N}$ and a family of continuous maps $(Q_i^n \colon D^n \to X)_{n \in \N, i \in I_n}$ called \emph{characteristic maps} with the following properties: 
 \begin{enumerate}[(i)]
     \item $\restrict{Q_i^n}{\interior{D^n}} \colon \interior{D^n} \to Q_i^n(\interior{D^n})$ is a homeomorphism for every $n \in \N$ and $i \in I_n$. We call $\openCell{n}{i} \coloneq Q_i^n(\interior{D^n})$ an \emph{(open) $n$-cell} and $\closedCell{n}{i} \coloneq Q_i^n(D^n)$ a \emph{closed $n$-cell}. \label{hannah:scholz:3}
-    \item Two different open cells are disjoint.
+    \item Two different open cells are disjoint. \label{hannah:scholz:8}
     \item For each $n \in \N$ and $i \in I_n$ the \emph{cell frontier} $\cellFrontier{n}{i} \coloneq Q_i^n(\boundary D^n)$ is contained in the union of a finite number of closed cells of a lower dimension. \label{hannah:scholz:4}
     \item A set $A \subseteq X$ is closed if the intersections $A \cap \closedCell{n}{i}$ are closed for all $n \in \N$ and $i \in I_n$. \label{hannah:scholz:5}
     \item The union of all closed cells is $X$. \label{hannah:scholz:6}
@@ -82,11 +82,176 @@ An \emph{(absolute) CW complex} on $X$ consists of a family of indexing sets $(I
 
 Here $D^n$ refers to the closed unit $n$-disc. The convention for what the symbol $D$ means is different in topology to other fields of mathematics. 
 
-Now for a short explanation: property \ref{hannah:scholz:3} tells you that the open disk needs to be deformed in a reasonable way (e.g.\ no ripping or gluing). Note that the notation for the closed $n$-cell $\closedCell{n}{i}$ is very confusing: it looks like the closed cell is the closure of the open cell but this in not the case in general. Property \ref{hannah:scholz:4} is called ``closure finiteness'' (which is the ``C'' in ``CW complex''). It tells you that the cell frontier needs to be glued to cells of lower dimension and the new cell cannot stretch over infinitely many lower cells. Again, the notation for the cell frontier is confusing: it is not generally the frontier of the open cell. The ``W'' in ``CW complex'' stands for ``weak topology''. This is Property \ref{hannah:scholz:5}. It tells you that the topology on $X$ is determined by the cells. Lastly, Property \ref{hannah:scholz:6} tells you that the whole space is made up of the cells. 
+Now for a short explanation: Property \ref{hannah:scholz:3} tells you that the open disk can be deformed in a reasonable way (e.g.\ no ripping or gluing). Note that the notation for the closed $n$-cell $\closedCell{n}{i}$ is very confusing: it looks like the closed cell is the closure of the open cell but this in not the case in general. Property \ref{hannah:scholz:4} is called ``closure finiteness'' (which is the ``C'' in ``CW complex''). It tells you that the cell frontier needs to be glued to cells of lower dimension and the new cell cannot stretch over infinitely many lower cells. Again, the notation for the cell frontier is confusing: it is not generally the frontier of the open cell. The ``W'' in ``CW complex'' stands for ``weak topology''. This is Property \ref{hannah:scholz:5}. It tells you that the topology on $X$ is determined by the cells. Lastly, Property \ref{hannah:scholz:6} tells you that the whole space is made up of the cells. 
+
+Now let us get to the Lean version of this definition which you can find in Figure \ref{hannah:scholz:fig:3}. Again, this is very long and surely overwhelming if you do not know any Lean. I will try to offer an explanation below. You don't need to understand this line by line. 
+
+\begin{figure}
+\begin{lstlisting}[language=lean]
+class CWComplex.{u} {X : Type u} [TopologicalSpace X] (C : Set X) where
+  cell (n : ℕ) : Type u
+  map (n : ℕ) (i : cell n) : PartialEquiv (Fin n → ℝ) X
+  source_eq (n : ℕ) (i : cell n) : (map n i).source = ball 0 1
+  continuousOn (n : ℕ) (i : cell n) : ContinuousOn (map n i) (closedBall 0 1)
+  continuousOn_symm (n : ℕ) (i : cell n) : ContinuousOn (map n i).symm (map n i).target
+  pairwiseDisjoint' :
+    (univ : Set (Σ n, cell n)).PairwiseDisjoint 
+        (fun ni ↦ map ni.1 ni.2 '' ball 0 1)
+  mapsTo' (n : ℕ) (i : cell n) : ∃ I : Π m, Finset (cell m),
+    MapsTo (map n i) (sphere 0 1) (⋃ (m < n) (j ∈ I m), 
+        map m j '' closedBall 0 1)
+  closed' (A : Set X) (hAC : A ⊆ C) :
+    (∀ n j, IsClosed (A ∩ map n j '' closedBall 0 1)) → IsClosed A
+  union' : ⋃ (n : ℕ) (j : cell n), map n j '' closedBall 0 1 = C
+\end{lstlisting}
+\caption{The definition of an absolute CW complex in Lean.}
+\label{hannah:scholz:fig:3}
+\end{figure}
+
+The first line says that we want to define the class of CW complexes \lstinline[language=lean]|C| in a topological space \lstinline[language=lean]|X|. Lean works with type theory instead of set theory, so you will see the word \lstinline[language=lean]|Type| appear a lot in the code. Just mentally replace this with the word ``Set''. So, \lstinline[language=lean]|{X : Type u}| means that \lstinline[language=lean]|X| is a set. \lstinline[language=lean]|[TopologicalSpace X]| means that \lstinline[language=lean]|X| is a topological space and \lstinline[language=lean]|(C : Set X)| means that \lstinline[language=lean]|C| is a subset of \lstinline[language=lean]|X|. What the different brackets mean is not important here. 
+
+You can see that this a already different from Definition \ref{hannah:scholz:7} since we are defining CW complexes as subspaces instead of the spaces themselves. The reason for this change is that a lot of CW complexes have a natural ambient space whose topology is easy to understand. For example, in Figure \ref{hannah:scholz:fig:2} I drew CW structures on the interval and the 2-sphere. These have the natural ambient spaces $\R$ and $\R^3$ respectively which have nicer topologies than the subspace topologies induced on our CW complexes. When we do maths on paper, this is a detail that we would just gloss over and ignore in most of our proofs. However, in formalisation we need to do all proofs in full detail and small issues like these can become painful. This leads us to our first limit: 
+
+\begin{limit}\label{hannah:scholz:limit:1}
+    Sometimes, a mathematical definition or statement needs to be modified to work well for formalisation. 
+\end{limit}
+
+Why is this a limit? This is because whatever statement about CW complexes I want to formalise, it will never be exactly the same as the original paper statement because we are working with a different definition. So the reader of my Lean code needs to check for themselves that my definition is still equivalent to the definition on paper. 
+
+Now, let's get back to our code in Figure \ref{hannah:scholz:fig:3}. In line 2, we are defining the indexing sets \lstinline[language=lean]|cell n|. These are just what we called $I_n$ in Definition \ref{hannah:scholz:7}.
+In line 3, we define the characteristic maps \lstinline[language=lean]|map n i| that correspond to $Q_i^n$ from Definition \ref{hannah:scholz:7}. We define them as \lstinline[language=lean]|PartialEquiv (Fin n → ℝ) X| where \lstinline[language=lean]|Fin n → ℝ| is just a weird way to write $\R^n$. A \lstinline[language=lean]|PartialEquiv| is a little bit like a pair of inverse maps: it consists of two maps in opposite directions. In this case, we have the forward map called \lstinline[language=lean]|map n i| going from $\R^n$ to \lstinline[language=lean]|X| and the backward map called \lstinline[language=lean]|(map n i).symm| going in the opposite direction. What makes this a \emph{partial} equivalence is that these two maps are only inverses when restricted to certain sets in the domain and codomain. The relevant set in the domain, i.e.\ here $\R^n$, is called \lstinline[language=lean]|(map n i).source| and the relevant set in the codomain, i.e.\ \lstinline[language=lean]|X|, is called \lstinline[language=lean]|(map n i).target|. For this definition to make sense, we require that the set in the codomain is the image of the set in the domain under the forward map. Why do we use such a weird definition? Again, constantly restricting to subsets is surprisingly annoying, so we prefer to have maps defined on our entire space. So this is another instance of Limit \ref{hannah:scholz:limit:1}. 
+
+In line 4, we say that this specific set in $\R^n$ is the open unit ball. This is just another way of saying that the restriction of \lstinline[language=lean]|map n i| to the open unit ball is a bijection. 
+
+Then in line 5, we require \lstinline[language=lean]|map n i| to be continuous on the closed unit ball and in line 6, we require the backwards map \lstinline[language=lean]|(map n i).symm| to be continuous on the set \lstinline[language=lean]|(map n i).target| which in this case, as explained above, is just the image of the open unit ball under \lstinline[language=lean]|map n i|. So all together, the lines 3 to 5 capture property \ref{hannah:scholz:3} of Definition \ref{hannah:scholz:7}. We can observe our first strength here: 
+
+\begin{strength}\label{hannah:scholz:strength:1}
+    Formalised definitions and notation are unambiguous. 
+\end{strength}
+
+Where before the notation $D^n$ could mean different things to different mathematicians, \lstinline[language=lean]|closedBall 0 1| is defined in the mathematical library ``Mathlib'' of Lean and by clicking on it in a code editor, you will get send to the precise definition of \lstinline[language=lean]|closedBall| which is
+
+\begin{lstlisting}[language=lean]
+def closedBall (x : α) (ε : ℝ) := { y | dist y x ≤ ε }
+\end{lstlisting}
+
+i.e.\ all the points \lstinline[language=lean]|y| that have distance less than or equal to \lstinline[language=lean]|ε| to \lstinline[language=lean]|x|. So even if the name was something unhelpful like \lstinline[language=lean]|D| instead of \lstinline[language=lean]|closedBall|, the meaning would still be clear.
+
+%However, what I formulated as Strength \ref{hannah:scholz:strength:1} above is not always positive. I can reformulate this a limit: 
+
+%\begin{limit}
+%    Having multiple equivalent formalised definitions is expensive and thus one is often restricted to a specific version of a definition.
+%\end{limit}
+
+%If you have taken a course on topology, you might have actually seen a definition of CW complexes that looks quite different to Definition \ref{hannah:scholz:7}. The definition I saw in my topology course made the notion of ``glueing'' that I used for my intuitive explanation above precise using concept from category theory like pushouts and colimits and defined CW complexes that way. In contrast to this, the definition presented here focuses on the end result of the gluing instead of the process. Both of these definitions have their advantages and disadvantages for the proofs of certain statements. In fact, popular topology books such as ``Algebraic Topology'' by Allen Hatcher \cite{Hatcher} introduce both definitions and then use whichever ist most convenient for each proof. 
+
+%Then why is this hard to do in formalisation and what do I mean by a definition being ``expensive''?
+
+For you to understand the next limit that I want to present, I first need to tell an embarrassing anecdote about line 4 of the Lean definition: for almost a year after I started working on this project (so in particular during my entire Bachelor thesis that covered it), this line mistakenly read 
+\begin{lstlisting}[language=lean]
+source_eq (n : ℕ) (i : cell n) : (map n i).source = closedBall 0 1
+\end{lstlisting}
+which requires the characteristic map to be a bijection on the entire closed ball. This in particular excludes examples like the second construction on the 2-sphere in Figure \ref{hannah:scholz:fig:2} where the cell frontier is mapped to a single point. 
+I only figured this out when I tried to implement the examples shown in the figure in Lean and this particular example was not possible. 
+The limitation here is an extension of Limit \ref{hannah:scholz:limit:1}: 
+
+\begin{limit}
+    Formalisation cannot verify a definition, i.e.\ it cannot check that the formalised notion captures the paper definition. 
+\end{limit}
+
+Of course, the ``wrong'' definition that I wrote wasn't wrong in any mathematical sense. Like in paper mathematics, you are free to define whatever object you want in Lean. I had just accidentally defined a more restrictive version of CW complexes. This issue can happen to humans, it often happens to AIs and it can be used to make it seem like you have proved an amazing complicated statement when in fact three files deep a definition is translated incorrectly which makes the final statement trivial. 
+
+Let us finish discussing the Lean definition in Figure \ref{hannah:scholz:fig:3}. The lines that we have not discussed are mostly just translations of our properties from Definition \ref{hannah:scholz:7}. Their precise statements are not particularly important so I will just tell you which statement they correspond to. Don't worry about understanding the code. Lines 7 to 9 correspond to Property \ref{hannah:scholz:8}, lines 10 to 12 describe closure finiteness i.e.\ Property \ref{hannah:scholz:4}, lines 13 and 14 describe the weak topology i.e.\ Property \ref{hannah:scholz:5} and the last line corresponds to Property \ref{hannah:scholz:6}.
+
+\subsection*{Proving things about CW complexes}
+
+Next, I want to come to the most obvious strength of formalisation: 
 
 \begin{strength}
-    Definitions and notation are unambiguous. 
+    Formalisation can verify whether a proof is correct.
 \end{strength}
+
+This can be useful for a number of reasons that I wish to discuss in this section. 
+Firstly, this is very convenient for tedious proofs. For my thesis, I was proving a lot of very basic lemmas that had very annoying proofs. Before I can present you an example, I need to give you a definition first. 
+
+\begin{definition}
+Let $X$ be a CW complex in the sense of Definition \ref{hannah:scholz:7}. We define $X_n \coloneq \bigcup_{m < n + 1} \bigcup_{i \in I_m} \closedCell{m}{i}$ and call it the \emph{$n$-skeleton} of $X$ for $-1 \le n \le \infty$.
+\end{definition}
+
+A simple but important fact is that a CW complex can not just be expressed as the union of its closed cells but also as the union of its open cells. This fact is derived from the following lemma. 
+
+\begin{lemma}\label{hannah:scholz:lem:1}
+    $X_n = \bigcup_{m < n + 1}\bigcup_{i \in I_m} \openCell{m}{i}$ for every $-1 \le n \le \infty$.
+\end{lemma}
+
+\begin{figure}
+    \centering
+    \begin{framed}
+    \begin{minipage}[t]{0.4\linewidth}
+            \tiny
+We show this by induction over $-1 \le n \le \infty$.
+    For the base case, assume that $n = -1$.
+    Then we get $X_{-1} = \bigcup_{m < 0}\bigcup_{i \in I_m}\closedCell{m}{i} = \varnothing = \bigcup_{m < 0}\bigcup_{i \in I_m} \openCell{m}{i}$.
+
+    For the induction step, assume that that the statement is true for $n$.
+    We now show that it also holds for $n + 1$.
+    \begin{equation*}
+        \begin{split}
+            X_{n + 1} &= \bigcup_{m < n + 2}\bigcup_{i \in I_m} \closedCell{m}{i} \\
+            &=\bigcup_{i \in I_{n + 1}}\closedCell{n+1}{i} \cup \bigcup_{m < n + 1}\bigcup_{i \in I_m} \closedCell{m}{i} \\
+            &= \bigcup_{i \in I_{n + 1}}\closedCell{n+1}{i} \cup X_n \\
+            &\stackrel{(1)}{=} \bigcup_{i \in I_{n + 1}}\closedCell{n+1}{i} \cup \bigcup_{m < n + 1}\bigcup_{i \in I_m} \openCell{m}{i} \\
+            &= \bigcup_{i \in I_{n + 1}}\openCell{n+1}{i} \cup \bigcup_{i \in I_{n + 1}}\cellFrontier{n+1}{i} \cup \bigcup_{m < n + 1}\bigcup_{i \in I_m} \openCell{m}{i} \\
+            &\stackrel{(2)}{=} \bigcup_{i \in I_{n + 1}}\openCell{n+1}{i} \cup \bigcup_{m < n + 1}\bigcup_{i \in I_m} \openCell{m}{i} \\
+            &= \bigcup_{m < n + 2}\bigcup_{i \in I_m} \openCell{m}{i}
+        \end{split}
+    \end{equation*}
+        \end{minipage}
+        \hspace{0.5cm}
+        \begin{minipage}[t]{0.4\linewidth}
+            \tiny
+Note that (1) holds by induction and (2) holds by closure finiteness.
+
+    Now we can move on to the case $n = \infty$.
+    \begin{equation*}
+        \begin{split}
+            X_{\infty} &= \bigcup_{m < \infty + 1}\bigcup_{i \in I_m}\closedCell{m}{i} \\
+            &= \bigcup_{m < \infty + 1}\bigcup_{l < m + 1}\bigcup_{i \in I_l}\closedCell{l}{i} \\
+            &= \bigcup_{m < \infty + 1} X_m \\
+            &\stackrel{(1)}{=} \bigcup_{m < \infty + 1}\bigcup_{l < m + 1}\bigcup_{i \in I_l}\openCell{l}{i} \\
+            &= \bigcup_{m < \infty + 1}\bigcup_{i \in I_m}\openCell{m}{i}
+        \end{split}
+    \end{equation*}
+    Where (1) holds by induction.
+        \end{minipage}
+    \end{framed}
+\caption{The proof of Lemma \ref{hannah:scholz:lem:1}.}
+\label{hannah:scholz:fig:4}
+\end{figure}
+
+I have put the proof of this lemma in Figure \ref{hannah:scholz:fig:4}. Please don't try to actually go through it. This is just to illustrate how annoying these proofs are when you actually write out all the details. 
+No one doubts that the statement of Lemma \ref{hannah:scholz:lem:1} is incorrect but (to my knowledge) no books write out proofs like these in excruciating detail either. So if you want a detailed proof, it is left to you to figure out and Lean can be of help here. I write proofs like these directly in Lean because I can think more clearly about my next step when I don't need to worry about the last one. 
+
+Of course this is more of a toy example but this has begun to happen in research mathematics: in 2020, Prof.\ Peter Scholze posed a challenge called the ``Liquid Tensor Experience'' to the formalisation community \cite{LiquidTensor}. He wanted a proof from his work about condensed mathematics verified because he still had lingering doubts about its correctness. After the relevant proof had been formalised in an effort lead by Johan Commelin, he wrote another blog post \cite{LiquidTensor2} expressing his satisfaction and explaining that the formalisation deepened his understanding of the maths involved and led to simplifications. We can extract another strength here: 
+
+\begin{strength}
+Formalising can clarify and aid understanding of the mathematics.
+\end{strength}
+
+I have of course not discovered any new results about CW complexes but on a smaller scale I did experience this: a lot of facts that seem obvious 
+
+%In the cited blog post he gives various reasons for this. Among other things he writes: 
+
+%\begin{quotation}
+%I spent much of 2019 obsessed with the proof of this theorem, almost getting crazy over it. In the end, we were able to get an argument pinned down on paper, but I think nobody else has dared to look at the details of this, and so I still have some small lingering doubts.
+%\end{quotation}
+
+%\begin{quotation}
+%    Question: Did you learn anything about mathematics during the formalization?
+
+%    Answer: Yes! \textelp{} In order to formalize Theorem 9.4, the Breen-Deligne resolution was axiomatized \textelp{}. What Johan [Commelin] realized is that one can actually give a nice and completely explicit object satisfying those axioms \textelp{}. I expect that Commelin’s complex may become a standard tool in the coming years.
+    %\textelp{}
+%\end{quotation}
 
 % Use boxes for strengths and limits in the color of the Theorem boxes
 
